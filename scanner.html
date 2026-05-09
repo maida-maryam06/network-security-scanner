@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetSentinel — Network Security Scanner & Firewall Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #040c10;
+  --panel:    #071318;
+  --panel2:   #091d26;
+  --border:   rgba(0,220,180,.15);
+  --accent:   #00dcb4;
+  --accent2:  #ff4d6d;
+  --accent3:  #ffd60a;
+  --blue:     #38b6ff;
+  --text:     #b8dde8;
+  --muted:    #3a6a7a;
+  --green:    #00ff9f;
+  --radius:   8px;
+  --glow:     0 0 20px rgba(0,220,180,.3);
+}
+
+body {
+  font-family: 'Rajdhani', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Grid bg */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,220,180,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,220,180,.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: gridShift 25s linear infinite;
+  pointer-events: none; z-index: 0;
+}
+@keyframes gridShift { to { background-position: 44px 44px; } }
+
+.wrap { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 28px 20px 80px; }
+
+/* ── Header ── */
+header { text-align: center; margin-bottom: 40px; animation: fadeDown .7s ease both; }
+@keyframes fadeDown { from { opacity:0; transform:translateY(-24px) } to { opacity:1; transform:none } }
+
+.logo-row { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:6px; }
+.logo-icon {
+  width:50px; height:50px; border:2px solid var(--accent); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+  box-shadow: var(--glow); animation: pulse 3s ease infinite;
+}
+@keyframes pulse { 50% { box-shadow: 0 0 32px rgba(0,220,180,.6); } }
+
+h1 {
+  font-family:'Orbitron',monospace; font-size:clamp(1.6rem,4vw,2.8rem); font-weight:900;
+  background: linear-gradient(135deg,#00dcb4,#38b6ff,#ffd60a);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.tagline { font-family:'Share Tech Mono',monospace; font-size:.78rem; color:var(--muted); letter-spacing:.14em; text-transform:uppercase; margin-top:4px; }
+
+/* ── Tabs ── */
+.tabs { display:flex; gap:0; margin-bottom:32px; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; animation: fadeUp .7s .15s ease both; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(18px) } to { opacity:1; transform:none } }
+
+.tab {
+  flex:1; padding:13px; background:transparent; border:none;
+  font-family:'Orbitron',monospace; font-size:.72rem; font-weight:700; letter-spacing:.08em;
+  color:var(--muted); cursor:pointer; transition:all .2s; border-right:1px solid var(--border);
+}
+.tab:last-child { border-right:none; }
+.tab.active { background:var(--accent); color:#000; }
+.tab:not(.active):hover { color:var(--accent); }
+
+/* ── Panel ── */
+.panel {
+  background:var(--panel); border:1px solid var(--border); border-radius:12px;
+  padding:32px; position:relative; overflow:hidden;
+  box-shadow: 0 20px 60px #00000080, 0 0 0 1px #ffffff06 inset;
+  animation: fadeUp .7s .25s ease both;
+}
+.panel::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--blue),transparent);
+}
+
+.section { display:none; }
+.section.active { display:block; }
+
+/* ── Form elements ── */
+.row { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+.row-3 { grid-template-columns:1fr 1fr 1fr; }
+.field { display:flex; flex-direction:column; gap:7px; }
+
+label {
+  font-family:'Share Tech Mono',monospace; font-size:.73rem; color:var(--accent);
+  letter-spacing:.12em; text-transform:uppercase;
+}
+
+input, select {
+  background:#030b10; border:1px solid rgba(0,220,180,.2); border-radius:var(--radius);
+  color:var(--text); font-family:'Share Tech Mono',monospace; font-size:.88rem;
+  padding:11px 14px; outline:none; transition:border-color .2s, box-shadow .2s;
+}
+input:focus, select:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,220,180,.15); }
+select option { background:#071318; }
+input::placeholder { color:var(--muted); }
+
+/* ── Buttons ── */
+.btn {
+  padding:12px 28px; border:none; border-radius:var(--radius);
+  font-family:'Orbitron',monospace; font-size:.72rem; font-weight:700;
+  letter-spacing:.08em; cursor:pointer; transition:all .22s;
+}
+.btn-primary { background:linear-gradient(135deg,var(--accent),#0099cc); color:#000; box-shadow:var(--glow); }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 0 28px rgba(0,220,180,.6); }
+.btn-danger { background:transparent; border:1px solid var(--accent2); color:var(--accent2); }
+.btn-danger:hover { background:var(--accent2); color:#fff; }
+.btn-warn { background:transparent; border:1px solid var(--accent3); color:var(--accent3); }
+.btn-warn:hover { background:var(--accent3); color:#000; }
+.btn:active { transform:translateY(0) scale(.97); }
+.btn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; }
+
+/* ── Scan hint ── */
+.hint {
+  background:#0a1e28; border:1px solid rgba(56,182,255,.2); border-radius:6px;
+  padding:10px 14px; font-family:'Share Tech Mono',monospace; font-size:.75rem;
+  color:#3a7a9a; margin-bottom:20px; line-height:1.6;
+}
+.hint b { color:var(--blue); }
+
+/* ── Status bar ── */
+.status-bar {
+  display:flex; align-items:center; gap:10px; margin-top:20px;
+  font-family:'Share Tech Mono',monospace; font-size:.8rem; color:var(--muted);
+  min-height:28px;
+}
+.spinner {
+  width:16px; height:16px; border:2px solid rgba(0,220,180,.2);
+  border-top-color:var(--accent); border-radius:50%;
+  animation:spin .6s linear infinite; display:none;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Results Table ── */
+.table-wrap { margin-top:28px; overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); }
+table { width:100%; border-collapse:collapse; font-size:.88rem; }
+thead { background:#0a1e28; }
+th {
+  padding:12px 14px; text-align:left;
+  font-family:'Share Tech Mono',monospace; font-size:.7rem; color:var(--accent);
+  letter-spacing:.1em; text-transform:uppercase; border-bottom:1px solid var(--border);
+}
+td { padding:11px 14px; border-bottom:1px solid rgba(0,220,180,.06); vertical-align:middle; }
+tr:last-child td { border-bottom:none; }
+tr:hover td { background:rgba(0,220,180,.04); }
+
+.badge {
+  display:inline-block; padding:3px 10px; border-radius:20px;
+  font-family:'Share Tech Mono',monospace; font-size:.68rem; font-weight:700; letter-spacing:.06em;
+}
+.badge-open    { background:#00ff9f18; color:var(--green);   border:1px solid #00ff9f44; }
+.badge-filtered{ background:#ffd60a18; color:var(--accent3); border:1px solid #ffd60a44; }
+.badge-closed  { background:#ff4d6d18; color:var(--accent2); border:1px solid #ff4d6d44; }
+.badge-high    { background:#ff4d6d22; color:var(--accent2); border:1px solid #ff4d6d44; }
+.badge-medium  { background:#ffd60a18; color:var(--accent3); border:1px solid #ffd60a44; }
+.badge-low     { background:#00dcb418; color:var(--accent);  border:1px solid #00dcb444; }
+.badge-allow   { background:#00ff9f18; color:var(--green);   border:1px solid #00ff9f44; }
+.badge-deny    { background:#ff4d6d18; color:var(--accent2); border:1px solid #ff4d6d44; }
+
+/* ── Summary cards ── */
+.summary-row { display:flex; gap:14px; margin-top:20px; flex-wrap:wrap; }
+.summary-card {
+  flex:1; min-width:120px; background:var(--panel2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:14px 18px; text-align:center;
+}
+.summary-card .num {
+  font-family:'Orbitron',monospace; font-size:2rem; font-weight:900; color:var(--accent);
+}
+.summary-card .lbl { font-family:'Share Tech Mono',monospace; font-size:.7rem; color:var(--muted); margin-top:2px; }
+
+/* ── Firewall Rules ── */
+.rule-list { margin-top:20px; display:flex; flex-direction:column; gap:10px; }
+.rule-item {
+  display:flex; align-items:center; gap:12px; padding:12px 16px;
+  background:var(--panel2); border:1px solid var(--border); border-radius:var(--radius);
+  font-family:'Share Tech Mono',monospace; font-size:.82rem;
+}
+.rule-priority { color:var(--muted); min-width:24px; }
+.rule-details  { flex:1; color:var(--text); }
+.rule-details span { color:var(--muted); }
+.rule-del { background:transparent; border:1px solid #ff4d6d44; color:var(--accent2); padding:4px 10px; border-radius:4px; cursor:pointer; font-size:.7rem; transition:all .2s; }
+.rule-del:hover { background:var(--accent2); color:#fff; }
+
+/* ── Traffic Flow Diagram ── */
+#flowCanvas { width:100%; border-radius:var(--radius); margin-top:20px; display:block; }
+
+.empty-state {
+  text-align:center; padding:48px 20px;
+  font-family:'Share Tech Mono',monospace; font-size:.85rem; color:var(--muted);
+}
+.empty-state .icon { font-size:2.5rem; margin-bottom:12px; opacity:.4; }
+
+.error-box {
+  background:#1a0508; border:1px solid #ff4d6d55; border-radius:var(--radius);
+  padding:12px 16px; font-family:'Share Tech Mono',monospace; font-size:.8rem;
+  color:var(--accent2); margin-top:16px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-row">
+      <div class="logo-icon">🛡️</div>
+      <h1>NetSentinel</h1>
+    </div>
+    <p class="tagline">Network Security Scanner &amp; Firewall Visualizer · Information Security A3</p>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('scanner')">📡 &nbsp;Port Scanner</button>
+    <button class="tab" onclick="switchTab('firewall')">🔥 &nbsp;Firewall Rules</button>
+    <button class="tab" onclick="switchTab('simulate')">⚡ &nbsp;Traffic Simulation</button>
+  </div>
+
+  <!-- ══════════════ SCANNER ══════════════ -->
+  <div class="panel">
+    <div class="section active" id="tab-scanner">
+
+      <div class="hint">
+        <b>Windows Note:</b> TCP SYN and UDP scans require <b>Administrator</b> privileges + <b>Npcap</b> installed.
+        "TCP Full Connect" works without admin. For best results, right-click and <b>Run as Administrator</b>.
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Target IP / Hostname</label>
+          <input type="text" id="scanTarget" placeholder="e.g. 192.168.1.1 or scanme.nmap.org" />
+        </div>
+        <div class="field">
+          <label>Scan Type</label>
+          <select id="scanType">
+            <option value="tcp_connect">TCP Full Connect (no admin)</option>
+            <option value="tcp_syn">TCP SYN Stealth (admin req.)</option>
+            <option value="udp">UDP Scan (admin req.)</option>
+            <option value="comprehensive">Comprehensive + Version</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Port Range</label>
+          <input type="text" id="portRange" value="1-1024" placeholder="e.g. 1-1024 or 22,80,443" />
+        </div>
+        <div class="field" style="justify-content:flex-end;">
+          <button class="btn btn-primary" id="scanBtn" onclick="startScan()">▶ START SCAN</button>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <div class="spinner" id="scanSpinner"></div>
+        <span id="scanStatus">Ready to scan.</span>
+      </div>
+
+      <div id="scanError"></div>
+      <div id="scanResults"></div>
+    </div>
+
+    <!-- ══════════════ FIREWALL ══════════════ -->
+    <div class="section" id="tab-firewall">
+      <div class="row row-3">
+        <div class="field">
+          <label>Action</label>
+          <select id="fwAction">
+            <option value="allow">✅ Allow</option>
+            <option value="deny">🚫 Deny</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>IP Address / Subnet</label>
+          <input type="text" id="fwIp" placeholder="e.g. 192.168.1.1 or *" />
+        </div>
+        <div class="field">
+          <label>Port (leave blank = Any)</label>
+          <input type="text" id="fwPort" placeholder="e.g. 80 or Any" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Protocol</label>
+          <select id="fwProtocol">
+            <option value="TCP">TCP</option>
+            <option value="UDP">UDP</option>
+            <option value="ANY">ANY</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Priority (lower = first)</label>
+          <input type="number" id="fwPriority" value="1" min="1" />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="addRule()">+ ADD RULE</button>
+        <button class="btn btn-danger" onclick="clearRules()">✕ CLEAR ALL</button>
+      </div>
+
+      <div id="fwError"></div>
+      <div id="ruleList" class="rule-list"></div>
+    </div>
+
+    <!-- ══════════════ SIMULATE ══════════════ -->
+    <div class="section" id="tab-simulate">
+
+      <div class="hint">
+        <b>How it works:</b> Load your scan results then apply firewall rules to each port.
+        Rules are evaluated in <b>priority order</b> — first match wins.
+        Default verdict if no rule matches: <b style="color:var(--green)">ALLOW</b>.
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        <button class="btn btn-primary" onclick="runSimulation()">⚡ RUN SIMULATION</button>
+        <button class="btn btn-warn" onclick="loadScanIntoSim()">📥 LOAD SCAN RESULTS</button>
+      </div>
+
+      <div id="simError"></div>
+      <div id="simResults"></div>
+      <canvas id="flowCanvas" height="320" style="display:none;"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:5001';
+let lastScanResults = [];
+let simPackets = [];
+
+// ── Tab switching ──────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['scanner','firewall','simulate'][i] === tab));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── Scanner ────────────────────────────────────────────────────
+async function startScan() {
+  const target    = document.getElementById('scanTarget').value.trim();
+  const scan_type = document.getElementById('scanType').value;
+  const port_range= document.getElementById('portRange').value.trim();
+
+  clearEl('scanError'); clearEl('scanResults');
+  if (!target) { showError('scanError','Target IP or hostname is required.'); return; }
+
+  setScanning(true, 'Scanning ' + target + ' — this may take 30–90 seconds…');
+
+  try {
+    const res  = await fetch(`${API}/scan`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target, scan_type, port_range})
+    });
+    const data = await res.json();
+    setScanning(false, '');
+
+    if (!res.ok || data.error) { showError('scanError', '⚠ ' + data.error); return; }
+
+    lastScanResults = data.results;
+    renderScanResults(data);
+    setStatus(`✅ ${data.summary}`);
+  } catch(e) {
+    setScanning(false,'');
+    showError('scanError','⚠ Cannot connect to Flask server. Make sure scanner_app.py is running on port 5001.');
+  }
+}
+
+function renderScanResults(data) {
+  const el = document.getElementById('scanResults');
+  if (!data.results.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🔍</div>${data.summary || 'No open ports found.'}</div>`;
+    return;
+  }
+
+  const open   = data.results.filter(r => r.status === 'open').length;
+  const high   = data.results.filter(r => r.risk === 'HIGH').length;
+  const medium = data.results.filter(r => r.risk === 'MEDIUM').length;
+
+  const rows = data.results.map(r => `
+    <tr>
+      <td>${r.ip}</td>
+      <td style="font-family:'Share Tech Mono',monospace">${r.port}</td>
+      <td>${r.protocol}</td>
+      <td>${r.service}</td>
+      <td><span class="badge badge-${r.status}">${r.status.toUpperCase()}</span></td>
+      <td><span class="badge badge-${r.risk.toLowerCase()}">${r.risk}</span></td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${data.results.length}</div><div class="lbl">OPEN PORTS</div></div>
+      <div class="summary-card"><div class="num" style="color:var(--accent2)">${high}</div><div class="lbl">HIGH RISK</div></div>
+      <div class="summary-card"><div class="num" style="color:var(--accent3)">${medium}</div><div class="lbl">MEDIUM RISK</div></div>
+      <div class="summary-card"><div class="num" style="color:var(--blue)">${data.resolved_ip}</div><div class="lbl">RESOLVED IP</div></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>IP</th><th>Port</th><th>Protocol</th><th>Service</th><th>Status</th><th>Risk</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function setScanning(on, msg) {
+  document.getElementById('scanSpinner').style.display = on ? 'block' : 'none';
+  document.getElementById('scanBtn').disabled = on;
+  if (msg) setStatus(msg);
+}
+function setStatus(msg) { document.getElementById('scanStatus').textContent = msg; }
+
+// ── Firewall Rules ─────────────────────────────────────────────
+async function addRule() {
+  const action   = document.getElementById('fwAction').value;
+  const ip       = document.getElementById('fwIp').value.trim();
+  const port     = document.getElementById('fwPort').value.trim();
+  const protocol = document.getElementById('fwProtocol').value;
+  const priority = document.getElementById('fwPriority').value;
+
+  clearEl('fwError');
+  if (!ip) { showError('fwError','⚠ IP address is required. Use * for any.'); return; }
+
+  try {
+    const res  = await fetch(`${API}/firewall/rules`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action, ip, port, protocol, priority})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { showError('fwError','⚠ ' + data.error); return; }
+    renderRules(data.rules);
+    document.getElementById('fwIp').value = '';
+    document.getElementById('fwPort').value = '';
+  } catch(e) {
+    showError('fwError','⚠ Cannot connect to Flask server.');
+  }
+}
+
+async function clearRules() {
+  try {
+    await fetch(`${API}/firewall/rules`, {method:'DELETE'});
+    renderRules([]);
+  } catch(e) { showError('fwError','⚠ Cannot connect to Flask server.'); }
+}
+
+async function deleteRule(id) {
+  try {
+    const res  = await fetch(`${API}/firewall/rules/${id}`, {method:'DELETE'});
+    const data = await res.json();
+    renderRules(data.rules);
+  } catch(e) {}
+}
+
+function renderRules(rules) {
+  const el = document.getElementById('ruleList');
+  if (!rules.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📋</div>No rules defined yet.</div>`;
+    return;
+  }
+  el.innerHTML = rules.map(r => `
+    <div class="rule-item">
+      <span class="rule-priority">#${r.priority}</span>
+      <span class="badge ${r.action === 'allow' ? 'badge-allow' : 'badge-deny'}">${r.action.toUpperCase()}</span>
+      <span class="rule-details">
+        IP: <span>${r.ip}</span> &nbsp;|&nbsp;
+        Port: <span>${r.port}</span> &nbsp;|&nbsp;
+        Proto: <span>${r.protocol}</span>
+      </span>
+      <button class="rule-del" onclick="deleteRule(${r.id})">✕ DEL</button>
+    </div>`).join('');
+}
+
+// Load rules on start
+(async () => {
+  try {
+    const res = await fetch(`${API}/firewall/rules`);
+    const data = await res.json();
+    renderRules(data.rules);
+  } catch(e) {}
+})();
+
+// ── Simulation ─────────────────────────────────────────────────
+function loadScanIntoSim() {
+  if (!lastScanResults.length) {
+    showError('simError','⚠ No scan results loaded. Run a scan first in the Port Scanner tab.'); return;
+  }
+  simPackets = lastScanResults.map(r => ({ip: r.ip, port: r.port, protocol: r.protocol, service: r.service}));
+  clearEl('simError');
+  document.getElementById('simResults').innerHTML =
+    `<div class="hint">✅ Loaded <b style="color:var(--accent)">${simPackets.length}</b> packets from scan results. Click <b>Run Simulation</b> to apply firewall rules.</div>`;
+}
+
+async function runSimulation() {
+  clearEl('simError');
+  if (!simPackets.length) {
+    showError('simError','⚠ No packets loaded. Click "Load Scan Results" first.'); return;
+  }
+
+  try {
+    const res  = await fetch(`${API}/firewall/simulate`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({packets: simPackets})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { showError('simError','⚠ ' + data.error); return; }
+
+    renderSimResults(data);
+    drawFlowDiagram(data.summary, data.results);
+  } catch(e) {
+    showError('simError','⚠ Cannot connect to Flask server.');
+  }
+}
+
+function renderSimResults(data) {
+  const rows = data.results.map(r => `
+    <tr>
+      <td style="font-family:'Share Tech Mono',monospace">${r.ip}</td>
+      <td style="font-family:'Share Tech Mono',monospace">${r.port}</td>
+      <td>${r.protocol}</td>
+      <td>${r.service}</td>
+      <td><span class="badge badge-${r.verdict.toLowerCase()}">${r.verdict}</span></td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:.75rem;color:var(--muted)">
+        ${r.matched_rule ? `Rule #${r.matched_rule.priority} (${r.matched_rule.ip}:${r.matched_rule.port})` : 'Default'}
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('simResults').innerHTML = `
+    <div class="summary-row">
+      <div class="summary-card"><div class="num">${data.summary.total}</div><div class="lbl">TOTAL</div></div>
+      <div class="summary-card"><div class="num" style="color:var(--green)">${data.summary.allowed}</div><div class="lbl">ALLOWED</div></div>
+      <div class="summary-card"><div class="num" style="color:var(--accent2)">${data.summary.blocked}</div><div class="lbl">BLOCKED</div></div>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>IP</th><th>Port</th><th>Protocol</th><th>Service</th><th>Verdict</th><th>Matched Rule</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function drawFlowDiagram(summary, results) {
+  const canvas = document.getElementById('flowCanvas');
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 900;
+  canvas.width = W; canvas.height = 320;
+
+  ctx.clearRect(0, 0, W, 320);
+
+  // Background
+  ctx.fillStyle = '#071318';
+  ctx.fillRect(0, 0, W, 320);
+
+  const total   = summary.total || 1;
+  const allowed = summary.allowed;
+  const blocked = summary.blocked;
+
+  // Draw nodes
+  const drawNode = (x, y, label, sub, color, icon) => {
+    ctx.save();
+    ctx.shadowColor = color; ctx.shadowBlur = 18;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(x - 70, y - 36, 140, 72, 8); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = color + '18';
+    ctx.beginPath(); ctx.roundRect(x - 70, y - 36, 140, 72, 8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px serif'; ctx.textAlign = 'center';
+    ctx.fillText(icon, x, y - 6);
+    ctx.fillStyle = color; ctx.font = '700 13px Orbitron, monospace'; ctx.textAlign = 'center';
+    ctx.fillText(label, x, y + 14);
+    ctx.fillStyle = '#6aacbf'; ctx.font = '11px Share Tech Mono, monospace';
+    ctx.fillText(sub, x, y + 30);
+  };
+
+  // Arrow
+  const drawArrow = (x1, y1, x2, y2, color, label) => {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.shadowColor = color; ctx.shadowBlur = 8;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
+    // arrowhead
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.save();
+    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 8;
+    ctx.translate(x2, y2); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-10,-5); ctx.lineTo(-10,5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    if (label) {
+      const mx = (x1+x2)/2, my = (y1+y2)/2;
+      ctx.fillStyle = color; ctx.font = '700 11px Share Tech Mono, monospace'; ctx.textAlign = 'center';
+      ctx.fillText(label, mx, my - 8);
+    }
+  };
+
+  const cx = W / 2;
+  // Source
+  drawNode(cx, 60, 'NETWORK', 'Incoming Traffic', '#38b6ff', '🌐');
+  // Firewall
+  drawNode(cx, 168, 'FIREWALL', `${total} packets`, '#ffd60a', '🔥');
+  // Allowed
+  drawNode(cx - 180, 276, 'ALLOWED', `${allowed} pkts (${Math.round(allowed/total*100)}%)`, '#00ff9f', '✅');
+  // Blocked
+  drawNode(cx + 180, 276, 'BLOCKED', `${blocked} pkts (${Math.round(blocked/total*100)}%)`, '#ff4d6d', '🚫');
+
+  drawArrow(cx, 96, cx, 132, '#38b6ff', `${total} packets`);
+  drawArrow(cx - 30, 204, cx - 150, 240, '#00ff9f', 'ALLOW');
+  drawArrow(cx + 30, 204, cx + 150, 240, '#ff4d6d', 'DENY');
+}
+
+// ── Utils ──────────────────────────────────────────────────────
+function showError(id, msg) {
+  document.getElementById(id).innerHTML = `<div class="error-box">${msg}</div>`;
+}
+function clearEl(id) { document.getElementById(id).innerHTML = ''; }
+</script>
+</body>
+</html>
